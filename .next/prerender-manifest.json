@@ -1,11 +1,1 @@
-{
-  "version": 4,
-  "routes": {},
-  "dynamicRoutes": {},
-  "notFoundRoutes": [],
-  "preview": {
-    "previewModeId": "0caaf99c78fa53f9637e9323a0fd567f",
-    "previewModeSigningKey": "9ef09f0d0378dbc5c41459b57caf0886681545f0314360b4d638436f1a6d7080",
-    "previewModeEncryptionKey": "1e68a2f886aef30d6d4c954104e7f214bea3dbcc43fcb307123baa0b9676edf7"
-  }
-}
+{"version":4,"routes":{"/member/gustavo-costa":{},"/member/pedro-galvao":{},"/member/marcio-souza":{},"/member/pedro-souza":{},"/member/thiago-maia":{},"/member/henrique":{},"/member/italo-bianchi":{}},"dynamicRoutes":{"/member/[slug]":{"dataRoute":null,"dataRouteRegex":null,"fallback":null,"fallbackRevalidate":false,"fallbackSourceRoute":"/member/[slug]","routeRegex":"^\\/member\\/([^/]+?)(?:\\/)?$","allowHeader":[]}},"notFoundRoutes":[],"preview":{"previewModeId":"e9d0e30d96cca373bc3b847195ddec32","previewModeSigningKey":"f536652ab4149881ddf5051048a9a5e841c381aa78827d8d8e1b8fbbd8f0397d","previewModeEncryptionKey":"d9080026b3bdb3ceecbcd6cbb6db6927cdf4c6eecc9a1faec17fdf9f5823c2e1"}}

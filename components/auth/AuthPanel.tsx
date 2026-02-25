@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Key, Mail, Shield, ShieldCheck } from 'lucide-react'
 
@@ -30,10 +31,12 @@ function Typewriter({ text }: { text: string }) {
 }
 
 export default function AuthPanel() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<AuthStatus>('IDLE')
   const [error, setError] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
   const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.toLowerCase())
 
@@ -43,32 +46,49 @@ export default function AuthPanel() {
     if (!validateEmail(email) || password.length < 4) {
       setStatus('DENIED')
       setError(true)
+      setErrorMessage('Invalid input format.')
       setTimeout(() => {
         setStatus('IDLE')
         setError(false)
-      }, 2000)
+        setErrorMessage('')
+      }, 1800)
       return
     }
 
-    setStatus('VALIDATING')
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    const isGranted = password === 'admin123' || Math.random() > 0.5
-
-    if (isGranted) {
-      setStatus('GRANTED')
-      return
-    }
-
-    setStatus('DENIED')
-    setError(true)
-    setTimeout(() => {
-      setStatus('IDLE')
+    try {
+      setStatus('VALIDATING')
       setError(false)
-    }, 2000)
+      setErrorMessage('')
+
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string }
+        throw new Error(data.error ?? 'Access denied.')
+      }
+
+      setStatus('GRANTED')
+      setTimeout(() => {
+        router.push('/member/manage')
+        router.refresh()
+      }, 700)
+    } catch (err) {
+      setStatus('DENIED')
+      setError(true)
+      setErrorMessage(err instanceof Error ? err.message : 'Access denied.')
+      setTimeout(() => {
+        setStatus('IDLE')
+        setError(false)
+      }, 2200)
+    }
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-black text-white font-mono">
+    <div className="min-h-screen w-full flex items-center justify-center bg-black text-white font-mono px-4">
       <motion.div
         className={`relative p-12 max-w-md w-full bg-black/80 border rounded-xl ${
           status === 'GRANTED'
@@ -146,8 +166,10 @@ export default function AuthPanel() {
                   : 'ACCESS_DENIED'}
           </button>
         </form>
+
+        {errorMessage ? <p className="mt-4 text-xs text-red-300">{errorMessage}</p> : null}
+        <p className="mt-6 text-[10px] text-white/45 uppercase tracking-[0.16em]">Demo password for all members: kiwi1234</p>
       </motion.div>
     </div>
   )
 }
-

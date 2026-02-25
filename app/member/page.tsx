@@ -1,5 +1,5 @@
-import MemberPanel from '@/components/member/MemberPanel'
+import { redirect } from 'next/navigation'
 
 export default function MemberPage() {
-  return <MemberPanel />
+  redirect('/member/gustavo-costa')
 }

@@ -1,4 +1,4 @@
-// File: /mnt/c/Users/g3ars/Downloads/kiwibit-web-codex-fix-tailwind-css-configuration-issues/kiwibit/app/page.tsx
+// File: /mnt/c/Users/g3ars/Downloads/kiwibit-web-codex-fix-tailwind-css-configuration-issues/kiwibit/app/page.jsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
