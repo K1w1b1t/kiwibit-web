@@ -50,3 +50,13 @@ export async function redisIncr(key: string) {
 export async function redisExpire(key: string, ttlSeconds: number) {
   await runRedisCommand(['EXPIRE', key, ttlSeconds])
 }
+
+export async function redisLpush(key: string, value: string) {
+  const result = await runRedisCommand(['LPUSH', key, value])
+  return Number(result ?? 0)
+}
+
+export async function redisRpop(key: string) {
+  const result = await runRedisCommand(['RPOP', key])
+  return result == null ? null : String(result)
+}

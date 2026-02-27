@@ -1,14 +1,10 @@
-import { promises as fs } from 'fs'
-import path from 'path'
-import { Prisma } from '@prisma/client'
-import { MEMBERS_BY_ID, type Member } from '@/data/members'
-import { isDatabaseEnabled, isDatabaseStrict, prisma } from '@/lib/prisma'
+﻿import { Prisma } from '@prisma/client'
+import { type Member } from '@/data/members'
+import { isDatabaseEnabled, prisma } from '@/lib/prisma'
 
-const OVERRIDES_PATH = path.join(process.cwd(), 'data', 'member-overrides.json')
 const MAX_VERSIONS = 30
 
 type MemberOverride = Partial<Omit<Member, 'id' | 'codename'>>
-type LegacyMemberOverrides = Record<string, MemberOverride>
 
 export type MemberVersion = {
   id: string
@@ -24,10 +20,6 @@ type MemberStoredState = {
   pendingAt?: string
 }
 
-type MemberStoreData = {
-  members: Record<string, MemberStoredState>
-}
-
 export type ManagedMemberState = {
   draft: Member
   published: Member
@@ -37,19 +29,19 @@ export type ManagedMemberState = {
   pendingAt?: string
 }
 
+function ensureDatabaseReady() {
+  if (!isDatabaseEnabled()) {
+    throw new Error('DATABASE_URL is required for member profile operations')
+  }
+}
+
 function generateVersionId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-function ensureDatabaseOrFallback() {
-  if (!isDatabaseEnabled() && isDatabaseStrict()) {
-    throw new Error('DB_STRICT is enabled but DATABASE_URL is not configured')
-  }
-}
-
 function normalizeSkillArray(value: unknown) {
   if (!Array.isArray(value)) return undefined
-  const parsed = value
+  return value
     .map((item) => {
       if (!item || typeof item !== 'object') return null
       const typed = item as { name?: unknown; category?: unknown }
@@ -58,12 +50,11 @@ function normalizeSkillArray(value: unknown) {
       return { name: typed.name, category: 'technical' as const }
     })
     .filter((item): item is { name: string; category: 'technical' } => Boolean(item))
-  return parsed
 }
 
 function normalizeProjectsArray(value: unknown) {
   if (!Array.isArray(value)) return undefined
-  const parsed = value
+  return value
     .map((item) => {
       if (!item || typeof item !== 'object') return null
       const typed = item as { title?: unknown; image?: unknown; href?: unknown }
@@ -71,7 +62,6 @@ function normalizeProjectsArray(value: unknown) {
       return { title: typed.title, image: typed.image, href: typed.href }
     })
     .filter((item): item is { title: string; image: string; href: string } => Boolean(item))
-  return parsed
 }
 
 function sanitizeMemberOverride(patch: MemberOverride): MemberOverride {
@@ -99,60 +89,10 @@ function sanitizeMemberOverride(patch: MemberOverride): MemberOverride {
   return allowed
 }
 
-function createInitialStateFromLegacy(legacy: LegacyMemberOverrides): MemberStoreData {
-  const members: Record<string, MemberStoredState> = {}
-  for (const memberId of Object.keys(legacy)) {
-    const sanitized = sanitizeMemberOverride(legacy[memberId] ?? {})
-    members[memberId] = {
-      draft: sanitized,
-      published: sanitized,
-      versions: [],
-      moderationStatus: 'published',
-    }
-  }
-  return { members }
-}
-
-function isStoreData(value: unknown): value is MemberStoreData {
-  if (!value || typeof value !== 'object') return false
-  return 'members' in (value as Record<string, unknown>)
-}
-
 function hasDraftChanges(base: Member, state: MemberStoredState) {
   const draftMember = { ...base, ...state.draft }
   const publishedMember = { ...base, ...state.published }
   return JSON.stringify(draftMember) !== JSON.stringify(publishedMember)
-}
-
-async function readStore(): Promise<MemberStoreData> {
-  ensureDatabaseOrFallback()
-  try {
-    const raw = await fs.readFile(OVERRIDES_PATH, 'utf8')
-    const parsed = JSON.parse(raw) as unknown
-    if (isStoreData(parsed)) return parsed
-    return createInitialStateFromLegacy(parsed as LegacyMemberOverrides)
-  } catch {
-    return { members: {} }
-  }
-}
-
-async function writeStore(data: MemberStoreData) {
-  await fs.writeFile(OVERRIDES_PATH, JSON.stringify(data, null, 2), 'utf8')
-}
-
-function ensureMemberState(store: MemberStoreData, memberId: string): MemberStoredState {
-  const existing = store.members[memberId]
-  if (existing) {
-    const normalized = {
-      ...existing,
-      moderationStatus: existing.moderationStatus ?? 'published',
-    }
-    store.members[memberId] = normalized
-    return normalized
-  }
-  const created: MemberStoredState = { draft: {}, published: {}, versions: [], moderationStatus: 'published' }
-  store.members[memberId] = created
-  return created
 }
 
 function buildVersion(snapshot: MemberOverride): MemberVersion {
@@ -161,6 +101,55 @@ function buildVersion(snapshot: MemberOverride): MemberVersion {
     createdAt: new Date().toISOString(),
     snapshot,
   }
+}
+
+function mapDbMemberToMember(input: {
+  id: string
+  codename: string
+  realName: string
+  speciality: string
+  bio: string
+  clearance: string
+  avatar: string
+  stack: string[]
+  achievements: string[]
+  contactEmail: string
+}): Member {
+  return {
+    id: input.id,
+    codename: input.codename,
+    realName: input.realName,
+    speciality: input.speciality,
+    bio: input.bio,
+    clearance: input.clearance,
+    avatar: input.avatar,
+    skills: [],
+    stack: input.stack,
+    achievements: input.achievements,
+    projects: [],
+    contactEmail: input.contactEmail,
+  }
+}
+
+async function getBaseMemberById(memberId: string): Promise<Member | null> {
+  if (!isDatabaseEnabled()) return null
+  const row = await prisma.member.findUnique({
+    where: { id: memberId },
+    select: {
+      id: true,
+      codename: true,
+      realName: true,
+      speciality: true,
+      bio: true,
+      clearance: true,
+      avatar: true,
+      stack: true,
+      achievements: true,
+      contactEmail: true,
+    },
+  })
+  if (!row) return null
+  return mapDbMemberToMember(row)
 }
 
 function toMemberStoredStateFromDb(input: {
@@ -180,6 +169,7 @@ function toMemberStoredStateFromDb(input: {
 }
 
 async function ensureDbState(memberId: string): Promise<MemberStoredState> {
+  ensureDatabaseReady()
   const existing = await prisma.memberProfileState.findUnique({
     where: { memberId },
     select: {
@@ -218,6 +208,7 @@ async function ensureDbState(memberId: string): Promise<MemberStoredState> {
 }
 
 async function saveDbState(memberId: string, state: MemberStoredState) {
+  ensureDatabaseReady()
   const draftJson = state.draft as unknown as Prisma.InputJsonValue
   const publishedJson = state.published as unknown as Prisma.InputJsonValue
   const versionsJson = state.versions as unknown as Prisma.InputJsonValue
@@ -242,20 +233,15 @@ async function saveDbState(memberId: string, state: MemberStoredState) {
 }
 
 export async function getPublishedMemberById(memberId: string): Promise<Member | null> {
-  const base = MEMBERS_BY_ID[memberId]
+  const base = await getBaseMemberById(memberId)
   if (!base) return null
+  if (!isDatabaseEnabled()) return null
 
-  if (isDatabaseEnabled()) {
-    const state = await prisma.memberProfileState.findUnique({
-      where: { memberId },
-      select: { published: true },
-    })
-    return { ...base, ...sanitizeMemberOverride((state?.published ?? {}) as MemberOverride) }
-  }
-
-  const store = await readStore()
-  const state = store.members[memberId]
-  return { ...base, ...(state?.published ?? {}) }
+  const state = await prisma.memberProfileState.findUnique({
+    where: { memberId },
+    select: { published: true },
+  })
+  return { ...base, ...sanitizeMemberOverride((state?.published ?? {}) as MemberOverride) }
 }
 
 export async function getMergedMemberById(memberId: string): Promise<Member | null> {
@@ -263,30 +249,14 @@ export async function getMergedMemberById(memberId: string): Promise<Member | nu
 }
 
 export async function getManagedMemberById(memberId: string): Promise<ManagedMemberState | null> {
-  const base = MEMBERS_BY_ID[memberId]
+  const base = await getBaseMemberById(memberId)
   if (!base) return null
+  if (!isDatabaseEnabled()) return null
 
-  if (isDatabaseEnabled()) {
-    const state = await ensureDbState(memberId)
-    const draft = { ...base, ...state.draft }
-    const published = { ...base, ...state.published }
-    return {
-      draft,
-      published,
-      hasDraftChanges: hasDraftChanges(base, state),
-      versions: state.versions,
-      moderationStatus: state.moderationStatus,
-      pendingAt: state.pendingAt,
-    }
-  }
-
-  const store = await readStore()
-  const state = ensureMemberState(store, memberId)
-  const draft = { ...base, ...state.draft }
-  const published = { ...base, ...state.published }
+  const state = await ensureDbState(memberId)
   return {
-    draft,
-    published,
+    draft: { ...base, ...state.draft },
+    published: { ...base, ...state.published },
     hasDraftChanges: hasDraftChanges(base, state),
     versions: state.versions,
     moderationStatus: state.moderationStatus,
@@ -295,32 +265,11 @@ export async function getManagedMemberById(memberId: string): Promise<ManagedMem
 }
 
 export async function saveDraftMemberById(memberId: string, patch: MemberOverride): Promise<ManagedMemberState | null> {
-  const base = MEMBERS_BY_ID[memberId]
+  const base = await getBaseMemberById(memberId)
   if (!base) return null
+  if (!isDatabaseEnabled()) return null
 
-  if (isDatabaseEnabled()) {
-    const state = await ensureDbState(memberId)
-    const sanitizedPatch = sanitizeMemberOverride(patch)
-    const nextDraft = {
-      ...state.draft,
-      ...sanitizedPatch,
-    }
-    state.draft = nextDraft
-    if (state.moderationStatus === 'published') state.moderationStatus = 'draft'
-    state.versions = [buildVersion(nextDraft), ...state.versions].slice(0, MAX_VERSIONS)
-    await saveDbState(memberId, state)
-    return {
-      draft: { ...base, ...state.draft },
-      published: { ...base, ...state.published },
-      hasDraftChanges: hasDraftChanges(base, state),
-      versions: state.versions,
-      moderationStatus: state.moderationStatus,
-      pendingAt: state.pendingAt,
-    }
-  }
-
-  const store = await readStore()
-  const state = ensureMemberState(store, memberId)
+  const state = await ensureDbState(memberId)
   const sanitizedPatch = sanitizeMemberOverride(patch)
   const nextDraft = {
     ...state.draft,
@@ -329,7 +278,7 @@ export async function saveDraftMemberById(memberId: string, patch: MemberOverrid
   state.draft = nextDraft
   if (state.moderationStatus === 'published') state.moderationStatus = 'draft'
   state.versions = [buildVersion(nextDraft), ...state.versions].slice(0, MAX_VERSIONS)
-  await writeStore(store)
+  await saveDbState(memberId, state)
 
   return {
     draft: { ...base, ...state.draft },
@@ -342,32 +291,11 @@ export async function saveDraftMemberById(memberId: string, patch: MemberOverrid
 }
 
 export async function publishDraftMemberById(memberId: string, role: 'member' | 'admin'): Promise<ManagedMemberState | null> {
-  const base = MEMBERS_BY_ID[memberId]
+  const base = await getBaseMemberById(memberId)
   if (!base) return null
+  if (!isDatabaseEnabled()) return null
 
-  if (isDatabaseEnabled()) {
-    const state = await ensureDbState(memberId)
-    if (role === 'admin') {
-      state.published = { ...state.draft }
-      state.moderationStatus = 'published'
-      state.pendingAt = undefined
-    } else {
-      state.moderationStatus = 'pending_review'
-      state.pendingAt = new Date().toISOString()
-    }
-    await saveDbState(memberId, state)
-    return {
-      draft: { ...base, ...state.draft },
-      published: { ...base, ...state.published },
-      hasDraftChanges: hasDraftChanges(base, state),
-      versions: state.versions,
-      moderationStatus: state.moderationStatus,
-      pendingAt: state.pendingAt,
-    }
-  }
-
-  const store = await readStore()
-  const state = ensureMemberState(store, memberId)
+  const state = await ensureDbState(memberId)
   if (role === 'admin') {
     state.published = { ...state.draft }
     state.moderationStatus = 'published'
@@ -376,7 +304,7 @@ export async function publishDraftMemberById(memberId: string, role: 'member' | 
     state.moderationStatus = 'pending_review'
     state.pendingAt = new Date().toISOString()
   }
-  await writeStore(store)
+  await saveDbState(memberId, state)
 
   return {
     draft: { ...base, ...state.draft },
@@ -389,31 +317,16 @@ export async function publishDraftMemberById(memberId: string, role: 'member' | 
 }
 
 export async function approvePendingMemberById(memberId: string): Promise<ManagedMemberState | null> {
-  const base = MEMBERS_BY_ID[memberId]
+  const base = await getBaseMemberById(memberId)
   if (!base) return null
+  if (!isDatabaseEnabled()) return null
 
-  if (isDatabaseEnabled()) {
-    const state = await ensureDbState(memberId)
-    state.published = { ...state.draft }
-    state.moderationStatus = 'published'
-    state.pendingAt = undefined
-    await saveDbState(memberId, state)
-    return {
-      draft: { ...base, ...state.draft },
-      published: { ...base, ...state.published },
-      hasDraftChanges: hasDraftChanges(base, state),
-      versions: state.versions,
-      moderationStatus: state.moderationStatus,
-      pendingAt: state.pendingAt,
-    }
-  }
-
-  const store = await readStore()
-  const state = ensureMemberState(store, memberId)
+  const state = await ensureDbState(memberId)
   state.published = { ...state.draft }
   state.moderationStatus = 'published'
   state.pendingAt = undefined
-  await writeStore(store)
+  await saveDbState(memberId, state)
+
   return {
     draft: { ...base, ...state.draft },
     published: { ...base, ...state.published },
@@ -425,36 +338,18 @@ export async function approvePendingMemberById(memberId: string): Promise<Manage
 }
 
 export async function revertDraftMemberByVersion(memberId: string, versionId: string): Promise<ManagedMemberState | null> {
-  const base = MEMBERS_BY_ID[memberId]
+  const base = await getBaseMemberById(memberId)
   if (!base) return null
+  if (!isDatabaseEnabled()) return null
 
-  if (isDatabaseEnabled()) {
-    const state = await ensureDbState(memberId)
-    const selected = state.versions.find((version) => version.id === versionId)
-    if (!selected) return null
-    state.draft = sanitizeMemberOverride(selected.snapshot)
-    if (state.moderationStatus === 'published') state.moderationStatus = 'draft'
-    state.versions = [buildVersion(state.draft), ...state.versions].slice(0, MAX_VERSIONS)
-    await saveDbState(memberId, state)
-    return {
-      draft: { ...base, ...state.draft },
-      published: { ...base, ...state.published },
-      hasDraftChanges: hasDraftChanges(base, state),
-      versions: state.versions,
-      moderationStatus: state.moderationStatus,
-      pendingAt: state.pendingAt,
-    }
-  }
-
-  const store = await readStore()
-  const state = ensureMemberState(store, memberId)
+  const state = await ensureDbState(memberId)
   const selected = state.versions.find((version) => version.id === versionId)
   if (!selected) return null
 
   state.draft = sanitizeMemberOverride(selected.snapshot)
   if (state.moderationStatus === 'published') state.moderationStatus = 'draft'
   state.versions = [buildVersion(state.draft), ...state.versions].slice(0, MAX_VERSIONS)
-  await writeStore(store)
+  await saveDbState(memberId, state)
 
   return {
     draft: { ...base, ...state.draft },
@@ -467,18 +362,13 @@ export async function revertDraftMemberByVersion(memberId: string, versionId: st
 }
 
 export async function getDraftMemberById(memberId: string): Promise<Member | null> {
-  const base = MEMBERS_BY_ID[memberId]
+  const base = await getBaseMemberById(memberId)
   if (!base) return null
+  if (!isDatabaseEnabled()) return null
 
-  if (isDatabaseEnabled()) {
-    const state = await prisma.memberProfileState.findUnique({
-      where: { memberId },
-      select: { draft: true },
-    })
-    return { ...base, ...sanitizeMemberOverride((state?.draft ?? {}) as MemberOverride) }
-  }
-
-  const store = await readStore()
-  const state = store.members[memberId]
-  return { ...base, ...(state?.draft ?? {}) }
+  const state = await prisma.memberProfileState.findUnique({
+    where: { memberId },
+    select: { draft: true },
+  })
+  return { ...base, ...sanitizeMemberOverride((state?.draft ?? {}) as MemberOverride) }
 }

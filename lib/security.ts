@@ -4,6 +4,7 @@ import { isRedisEnabled, redisExpire, redisIncr } from '@/lib/redis'
 
 const CSRF_COOKIE = 'kb_csrf'
 const RATE_BUCKET_MS = 60_000
+const DAY_BUCKET_MS = 86_400_000
 
 type RateEntry = {
   count: number
@@ -11,6 +12,7 @@ type RateEntry = {
 }
 
 const rateState = new Map<string, RateEntry>()
+const dailyState = new Map<string, RateEntry>()
 
 function getSecret() {
   return process.env.SESSION_SECRET ?? 'dev-only-change-me'
@@ -84,4 +86,33 @@ export async function enforceRateLimit(key: string, maxPerMinute: number) {
   current.count += 1
   rateState.set(key, current)
   return { allowed: true, remaining: maxPerMinute - current.count }
+}
+
+export async function enforceDailyLimit(key: string, maxPerDay: number) {
+  const now = Date.now()
+  const dayBucket = Math.floor(now / DAY_BUCKET_MS)
+  if (isRedisEnabled()) {
+    const bucketKey = `dl:${key}:${dayBucket}`
+    const count = await redisIncr(bucketKey)
+    if (count === 1) {
+      await redisExpire(bucketKey, 60 * 60 * 26)
+    }
+    if (count > maxPerDay) {
+      return { allowed: false, remaining: 0 }
+    }
+    return { allowed: true, remaining: Math.max(0, maxPerDay - count) }
+  }
+
+  const cacheKey = `${key}:${dayBucket}`
+  const current = dailyState.get(cacheKey)
+  if (!current || current.resetAt <= now) {
+    dailyState.set(cacheKey, { count: 1, resetAt: now + DAY_BUCKET_MS })
+    return { allowed: true, remaining: maxPerDay - 1 }
+  }
+  if (current.count >= maxPerDay) {
+    return { allowed: false, remaining: 0 }
+  }
+  current.count += 1
+  dailyState.set(cacheKey, current)
+  return { allowed: true, remaining: maxPerDay - current.count }
 }

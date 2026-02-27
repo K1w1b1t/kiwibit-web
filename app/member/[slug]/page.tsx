@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import MemberPanel from '@/components/member/MemberPanel'
-import { MEMBER_IDS, MEMBERS_BY_ID } from '@/data/members'
+import { MEMBERS_BY_ID, type Member } from '@/data/members'
 import { getPublishedMemberById } from '@/lib/member-store'
+import { listDirectoryMembers } from '@/lib/member-directory-store'
 
 const SITE_URL = 'http://localhost:3000'
 
@@ -10,21 +11,42 @@ type PageProps = {
   params: Promise<{ slug: string }>
 }
 
-export function generateStaticParams() {
-  return MEMBER_IDS.map((slug) => ({ slug }))
+const MEMBER_SLUG_ALIASES: Record<string, string> = {
+  pedryn: 'pedro-souza',
+  'pedro-henrique': 'pedro-souza',
+  'pedro-henrique-souza': 'pedro-souza',
+  marcio: 'marcio-souza',
+  gustavo: 'gustavo-costa',
+  thiago: 'thiago-maia',
+}
+
+function normalizeSlug(slug: string) {
+  return slug.toLowerCase().trim()
+}
+
+async function resolveMemberBySlug(rawSlug: string): Promise<Member | null> {
+  const normalized = normalizeSlug(rawSlug)
+  const slug = MEMBER_SLUG_ALIASES[normalized] ?? normalized
+  const fromStore = await getPublishedMemberById(slug)
+  if (fromStore) return fromStore
+  return MEMBERS_BY_ID[slug] ?? null
+}
+
+export async function generateStaticParams() {
+  const members = await listDirectoryMembers()
+  return members.map((member) => ({ slug: member.id }))
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
 
-  if (!MEMBER_IDS.includes(slug)) {
+  const member = await resolveMemberBySlug(slug)
+  if (!member) {
     return {
       title: 'Member Not Found | KIWI BIT',
       description: 'Requested member profile was not found.',
     }
   }
-
-  const member = (await getPublishedMemberById(slug)) ?? MEMBERS_BY_ID[slug]
   const title = `${member.realName} | KIWI BIT Member`
   const description = `${member.speciality}. ${member.bio}`
   const canonical = `${SITE_URL}/member/${member.id}`
@@ -62,11 +84,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function MemberDetailPage({ params }: PageProps) {
   const { slug } = await params
 
-  if (!MEMBER_IDS.includes(slug)) {
-    notFound()
-  }
-
-  const member = (await getPublishedMemberById(slug)) ?? MEMBERS_BY_ID[slug]
+  const member = await resolveMemberBySlug(slug)
+  if (!member) notFound()
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Person',
@@ -86,7 +105,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <MemberPanel initialMemberId={slug} initialMemberData={member} />
+      <MemberPanel initialMemberId={member.id} initialMemberData={member} />
     </>
   )
 }

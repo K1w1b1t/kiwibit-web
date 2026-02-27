@@ -2,6 +2,12 @@
 
 import { FormEvent, useState } from 'react'
 
+function getVariant() {
+  if (typeof window === 'undefined') return 'A' as const
+  const id = window.localStorage.getItem('kb_visitor_id') ?? 'a'
+  return id.charCodeAt(0) % 2 === 0 ? 'A' : 'B'
+}
+
 export default function NewsletterCapture() {
   const [email, setEmail] = useState('')
   const [feedback, setFeedback] = useState('')
@@ -9,12 +15,22 @@ export default function NewsletterCapture() {
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    void fetch('/api/blog/analytics/track', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'post_cta_click', cta: 'newsletter_subscribe' }),
+    })
     setIsSending(true)
     setFeedback('')
     const response = await fetch('/api/newsletter/subscribe', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({
+        email,
+        segment: 'blog-security',
+        source: window.location.pathname,
+        variant: getVariant(),
+      }),
     })
     const data = (await response.json()) as { confirmUrl?: string; error?: string }
     if (!response.ok) {

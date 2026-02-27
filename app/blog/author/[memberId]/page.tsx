@@ -1,8 +1,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { MEMBERS_BY_ID } from '@/data/members'
 import { listPublishedPostsByAuthor } from '@/lib/blog-store'
+import { getDirectoryMemberById } from '@/lib/member-directory-store'
 
 type AuthorPageProps = {
   params: Promise<{ memberId: string }>
@@ -10,7 +10,7 @@ type AuthorPageProps = {
 
 export default async function AuthorPostsPage({ params }: AuthorPageProps) {
   const { memberId } = await params
-  const member = MEMBERS_BY_ID[memberId]
+  const member = await getDirectoryMemberById(memberId)
   if (!member) notFound()
   const posts = await listPublishedPostsByAuthor(memberId)
 
@@ -18,10 +18,10 @@ export default async function AuthorPostsPage({ params }: AuthorPageProps) {
     <main className="min-h-screen bg-[var(--surface-bg)] px-4 py-24 text-[var(--text-main)]">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex items-center gap-4">
-          <Image src={member.avatar} alt={member.realName} width={72} height={72} className="h-18 w-18 rounded-full object-cover" />
+          <Image src={member.avatar_url} alt={member.name} width={72} height={72} className="h-18 w-18 rounded-full object-cover" />
           <div>
-            <h1 className="text-4xl font-semibold">{member.realName}</h1>
-            <p className="text-sm text-[var(--text-soft)]">{member.speciality}</p>
+            <h1 className="text-4xl font-semibold">{member.name}</h1>
+            <p className="text-sm text-[var(--text-soft)]">{member.role}</p>
           </div>
         </header>
 

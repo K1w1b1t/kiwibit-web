@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { BLOG_SEED_POSTS, type BlogPost, type BlogPostStatus } from '@/data/blog-seed'
+import { BLOG_FIXED_CATEGORIES } from '@/data/blog-editorial'
 import { isDatabaseEnabled, isDatabaseStrict, prisma } from '@/lib/prisma'
 
 const POSTS_PATH = path.join(process.cwd(), 'data', 'blog-posts.json')
@@ -41,6 +42,16 @@ function normalizeSlug(value: string) {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
+}
+
+function normalizeTag(value: string) {
+  return normalizeSlug(value).slice(0, 40)
+}
+
+function normalizeCategories(categories: string[]) {
+  const allowed = new Set(BLOG_FIXED_CATEGORIES)
+  const normalized = categories.filter((category): category is (typeof BLOG_FIXED_CATEGORIES)[number] => allowed.has(category as (typeof BLOG_FIXED_CATEGORIES)[number]))
+  return normalized.length > 0 ? normalized : ['Engineering']
 }
 
 async function readStore(): Promise<BlogStore> {
@@ -210,6 +221,9 @@ export async function listAllPostsForAdmin() {
 }
 
 export async function upsertDraftPost(input: UpsertPostInput) {
+  const normalizedTags = Array.from(new Set(input.tags.map(normalizeTag).filter(Boolean))).slice(0, 12)
+  const normalizedCategories = normalizeCategories(Array.from(new Set(input.categories)).slice(0, 3))
+
   if (isDatabaseEnabled()) {
     const computedSlug = normalizeSlug(input.slug && input.slug.length > 0 ? input.slug : input.title)
     const post = await prisma.blogPost.upsert({
@@ -220,8 +234,8 @@ export async function upsertDraftPost(input: UpsertPostInput) {
         excerpt: input.excerpt,
         coverImage: input.coverImage,
         authorId: input.authorId,
-        tags: input.tags,
-        categories: input.categories,
+        tags: normalizedTags,
+        categories: normalizedCategories,
         featured: input.featured,
         status: 'draft',
         draftContent: input.draftContent,
@@ -231,8 +245,8 @@ export async function upsertDraftPost(input: UpsertPostInput) {
         excerpt: input.excerpt,
         coverImage: input.coverImage,
         authorId: input.authorId,
-        tags: input.tags,
-        categories: input.categories,
+        tags: normalizedTags,
+        categories: normalizedCategories,
         featured: input.featured,
         draftContent: input.draftContent,
         status: 'draft',
@@ -250,8 +264,8 @@ export async function upsertDraftPost(input: UpsertPostInput) {
     existing.excerpt = input.excerpt
     existing.coverImage = input.coverImage
     existing.authorId = input.authorId
-    existing.tags = input.tags
-    existing.categories = input.categories
+    existing.tags = normalizedTags
+    existing.categories = normalizedCategories
     existing.featured = input.featured
     existing.draftContent = input.draftContent
     existing.updatedAt = now
@@ -267,8 +281,8 @@ export async function upsertDraftPost(input: UpsertPostInput) {
     excerpt: input.excerpt,
     coverImage: input.coverImage,
     authorId: input.authorId,
-    tags: input.tags,
-    categories: input.categories,
+    tags: normalizedTags,
+    categories: normalizedCategories,
     featured: input.featured,
     status: 'draft',
     createdAt: now,

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { absoluteUrl } from '@/lib/site-config'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -7,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/admin/', '/api/admin/'],
     },
-    sitemap: 'http://localhost:3000/sitemap.xml',
+    sitemap: absoluteUrl('/sitemap.xml'),
   }
 }

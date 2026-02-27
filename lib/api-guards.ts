@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { enforceCsrf, enforceRateLimit, getClientIp, getCsrfCookieName } from '@/lib/security'
 import { getSessionFromCookiesAsync } from '@/lib/session'
+import type { SessionRole } from '@/lib/session'
 
 type GuardContext = {
   session: NonNullable<Awaited<ReturnType<typeof getSessionFromCookiesAsync>>>
@@ -30,6 +31,20 @@ export async function requireAdmin(request: Request, rateKey: string, maxPerMinu
   const checked = await requireSession(request, rateKey, maxPerMinute)
   if ('response' in checked) return checked
   if (checked.session.role !== 'admin') {
+    return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+  }
+  return checked
+}
+
+export async function requireAnyRole(
+  request: Request,
+  rateKey: string,
+  maxPerMinute: number,
+  roles: SessionRole[]
+): Promise<GuardContext | GuardFailure> {
+  const checked = await requireSession(request, rateKey, maxPerMinute)
+  if ('response' in checked) return checked
+  if (!roles.includes(checked.session.role)) {
     return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
   return checked

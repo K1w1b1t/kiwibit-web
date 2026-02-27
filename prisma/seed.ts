@@ -6,6 +6,7 @@ import path from 'path'
 import { BLOG_SEED_POSTS } from '../data/blog-seed'
 import { MEMBER_ACCOUNTS } from '../data/member-accounts'
 import { MEMBERS_BY_ID } from '../data/members'
+import { hashPassword, isHashedPassword } from '../lib/password'
 
 const prisma = new PrismaClient()
 
@@ -96,13 +97,13 @@ async function seedAccounts() {
       where: { email: account.email.toLowerCase() },
       update: {
         memberId: account.memberId,
-        password: account.password,
+        password: isHashedPassword(account.password) ? account.password : hashPassword(account.password),
         role: account.role as UserRole,
       },
       create: {
         memberId: account.memberId,
         email: account.email.toLowerCase(),
-        password: account.password,
+        password: isHashedPassword(account.password) ? account.password : hashPassword(account.password),
         role: account.role as UserRole,
       },
     })
