@@ -94,16 +94,16 @@ async function seedMembers() {
 async function seedAccounts() {
   for (const account of MEMBER_ACCOUNTS) {
     await prisma.memberAccount.upsert({
-      where: { email: account.email.toLowerCase() },
+      where: { memberId: account.memberId },
       update: {
-        memberId: account.memberId,
-        password: isHashedPassword(account.password) ? account.password : hashPassword(account.password),
+        email: account.email.toLowerCase(),
+        password: isHashedPassword(account.password) ? account.password : await hashPassword(account.password),
         role: account.role as UserRole,
       },
       create: {
         memberId: account.memberId,
         email: account.email.toLowerCase(),
-        password: isHashedPassword(account.password) ? account.password : hashPassword(account.password),
+        password: isHashedPassword(account.password) ? account.password : await hashPassword(account.password),
         role: account.role as UserRole,
       },
     })

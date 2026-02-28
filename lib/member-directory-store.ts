@@ -219,7 +219,7 @@ export async function createDirectoryMember(input: MemberDirectoryInput) {
         ? {
             create: {
               email: input.account_email.toLowerCase(),
-              password: hashPassword(input.account_password ?? 'kiwi1234'),
+              password: await hashPassword(input.account_password ?? 'kiwi1234'),
               role: mapAccessRoleToDbRole(desiredRole),
             },
           }
@@ -339,7 +339,7 @@ export async function updateDirectoryMember(id: string, input: MemberDirectoryIn
         where: { memberId: id },
         data: {
           email: input.account_email.toLowerCase(),
-          ...(input.account_password ? { password: hashPassword(input.account_password) } : {}),
+          ...(input.account_password ? { password: await hashPassword(input.account_password) } : {}),
           role: mapAccessRoleToDbRole(desiredRole),
         },
       })
@@ -348,7 +348,7 @@ export async function updateDirectoryMember(id: string, input: MemberDirectoryIn
         data: {
           memberId: id,
           email: input.account_email.toLowerCase(),
-          password: hashPassword(input.account_password ?? 'kiwi1234'),
+          password: await hashPassword(input.account_password ?? 'kiwi1234'),
           role: mapAccessRoleToDbRole(desiredRole),
         },
       })

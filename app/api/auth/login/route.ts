@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createSessionTokenPersisted, SESSION_COOKIE, sessionCookieOptions } from '@/lib/session'
+import { createSessionTokenPersisted, revokeSessionToken, SESSION_COOKIE, sessionCookieOptions } from '@/lib/session'
 import { createCsrfToken, csrfCookieOptions, enforceRateLimit, getClientIp, getCsrfCookieName } from '@/lib/security'
 import { appendAuditLog } from '@/lib/audit-log'
 import { isDatabaseEnabled, prisma } from '@/lib/prisma'
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     where: { email: email.toLowerCase() },
     select: { memberId: true, email: true, password: true, role: true, isActive: true },
   })
-  const passwordCheck = account ? verifyPassword(password, account.password) : { ok: false, needsRehash: false }
+  const passwordCheck = account ? await verifyPassword(password, account.password) : { ok: false, needsRehash: false }
   if (!account || !passwordCheck.ok) {
     await appendAuditLog({
       at: new Date().toISOString(),
@@ -95,8 +95,18 @@ export async function POST(request: Request) {
   if (passwordCheck.needsRehash) {
     await prisma.memberAccount.update({
       where: { email: account.email.toLowerCase() },
-      data: { password: hashPassword(password) },
+      data: { password: await hashPassword(password) },
     })
+  }
+
+  const existingToken = request.headers
+    .get('cookie')
+    ?.split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${SESSION_COOKIE}=`))
+    ?.slice(SESSION_COOKIE.length + 1)
+  if (existingToken) {
+    await revokeSessionToken(existingToken)
   }
 
   const token = await createSessionTokenPersisted(account.memberId, account.email, role)

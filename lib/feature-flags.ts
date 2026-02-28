@@ -11,7 +11,7 @@ type FlagKey =
 
 const DEFAULT_FLAGS: Record<FlagKey, boolean> = {
   semantic_admin_panel: true,
-  semantic_embeddings: true,
+  semantic_embeddings: false,
   ai_editor_openai: true,
   activity_feed: true,
   reputation_ranking: true,

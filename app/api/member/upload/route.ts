@@ -8,6 +8,7 @@ import { isObjectStorageEnabled, uploadObjectToStorage } from '@/lib/object-stor
 import { createApiRequestContext, jsonApiError, logApiError, withRequestId } from '@/lib/api-monitor'
 import { enforceCsrf, enforceDailyLimit, enforceRateLimit, getClientIp, getCsrfCookieName } from '@/lib/security'
 import { verifyUploadToken } from '@/lib/upload-signature'
+import { validateUploadedImage } from '@/lib/upload-security'
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -56,15 +57,16 @@ export async function POST(request: Request) {
     if (!(rawFile instanceof File)) {
       return NextResponse.json({ error: 'Invalid file payload' }, { status: 400 })
     }
-    if (!ALLOWED_TYPES.has(rawFile.type)) {
-      return NextResponse.json({ error: 'Only JPG, PNG and WEBP are allowed' }, { status: 400 })
-    }
     if (rawFile.size > MAX_UPLOAD_BYTES) {
       return NextResponse.json({ error: 'Max file size is 5MB' }, { status: 400 })
     }
 
     const bytes = await rawFile.arrayBuffer()
     const buffer = Buffer.from(bytes)
+    const imageCheck = validateUploadedImage(buffer, rawFile.type, ALLOWED_TYPES)
+    if (!imageCheck.ok) {
+      return NextResponse.json({ error: imageCheck.error }, { status: 400 })
+    }
     if (process.env.AV_SCAN_WEBHOOK_URL) {
       try {
         const scan = await fetch(process.env.AV_SCAN_WEBHOOK_URL, {
@@ -111,8 +113,8 @@ export async function POST(request: Request) {
         for (const size of SIZES) {
           const fileName = `${fileNameBase}-${size.key}.webp`
           const fileNameAvif = `${fileNameBase}-${size.key}.avif`
-          const outputBuffer = await sharpModule(buffer).rotate().resize(size.width).webp({ quality: 82 }).toBuffer()
-          const outputAvif = await sharpModule(buffer).rotate().resize(size.width).avif({ quality: 62 }).toBuffer()
+          const outputBuffer = await sharpModule(buffer).rotate().resize(size.width, size.width, { fit: 'cover', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()
+          const outputAvif = await sharpModule(buffer).rotate().resize(size.width, size.width, { fit: 'cover', withoutEnlargement: true }).avif({ quality: 62 }).toBuffer()
           const uploaded = await uploadObjectToStorage({
             key: `members/${sanitizeFilePart(session.memberId)}/${fileName}`,
             body: outputBuffer,
@@ -141,8 +143,8 @@ export async function POST(request: Request) {
       for (const size of SIZES) {
         const fileName = `${fileNameBase}-${size.key}.webp`
         const fileNameAvif = `${fileNameBase}-${size.key}.avif`
-        const outputBuffer = await sharpModule(buffer).rotate().resize(size.width).webp({ quality: 82 }).toBuffer()
-        const outputAvif = await sharpModule(buffer).rotate().resize(size.width).avif({ quality: 62 }).toBuffer()
+        const outputBuffer = await sharpModule(buffer).rotate().resize(size.width, size.width, { fit: 'cover', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()
+        const outputAvif = await sharpModule(buffer).rotate().resize(size.width, size.width, { fit: 'cover', withoutEnlargement: true }).avif({ quality: 62 }).toBuffer()
         await fs.writeFile(path.join(absoluteDir, fileName), outputBuffer)
         await fs.writeFile(path.join(absoluteDir, fileNameAvif), outputAvif)
         urls[size.key] = `/${relativeDir.replace(/\\/g, '/')}/${fileName}`

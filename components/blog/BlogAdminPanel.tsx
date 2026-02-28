@@ -364,13 +364,16 @@ export default function BlogAdminPanel() {
     return <div className="min-h-screen bg-[var(--surface-bg)]" />
   }
 
+  const panelClass = 'rounded-2xl border border-white/15 bg-[rgba(20,20,20,0.6)] backdrop-blur-xl shadow-[0_0_15px_rgba(255,255,255,0.05),inset_0_0_10px_rgba(255,255,255,0.02)]'
+  const inputClass = 'w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-white/40 focus:outline-none'
+
   return (
-    <main className="min-h-screen bg-[var(--surface-bg)] px-4 py-24 text-[var(--text-main)]">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex items-center justify-between">
+    <main className="min-h-screen bg-[#050505] px-6 py-8 font-['Inter'] text-slate-100 [background-image:radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.02)_0%,transparent_100%),linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] [background-size:100%_100%,30px_30px,30px_30px]">
+      <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-8">
+        <header className={`${panelClass} flex items-center justify-between p-5`}>
           <div>
-            <h1 className="text-3xl font-semibold">Content Admin</h1>
-            <p className="text-sm text-[var(--text-soft)]">Role: {role}</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-white">Content Admin</h1>
+            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Role: {role}</p>
           </div>
           <button
             type="button"
@@ -379,15 +382,15 @@ export default function BlogAdminPanel() {
               setSelectedSlug(null)
               setForm(draft)
             }}
-            className="rounded border border-[var(--surface-border)] px-3 py-2 text-xs uppercase tracking-[0.14em]"
+            className="rounded-lg bg-white px-5 py-2 text-xs font-bold uppercase tracking-[0.14em] text-black transition hover:bg-zinc-200"
           >
             New Post
           </button>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-[280px_1fr_1fr]">
-          <aside className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Posts</p>
+        <div className="grid flex-1 gap-8 xl:grid-cols-12">
+          <aside className={`xl:col-span-3 ${panelClass} p-6`}>
+            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Posts Repository</p>
             <ul className="mt-3 space-y-2">
               {posts.map((post) => (
                 <li key={post.slug}>
@@ -397,27 +400,27 @@ export default function BlogAdminPanel() {
                       setSelectedSlug(post.slug)
                       setForm(post)
                     }}
-                    className={`w-full rounded border px-3 py-2 text-left text-xs ${selectedSlug === post.slug ? 'border-[var(--text-main)]' : 'border-[var(--surface-border)]'}`}
+                    className={`w-full rounded-xl border px-3 py-3 text-left text-xs transition ${selectedSlug === post.slug ? 'border-white/40 bg-white/10' : 'border-white/10 hover:border-white/30 hover:bg-white/5'}`}
                   >
                     <p className="font-semibold">{post.title}</p>
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">{post.status}</p>
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">{post.status}</p>
                   </button>
                 </li>
               ))}
             </ul>
           </aside>
 
-          <section className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+          <section className={`xl:col-span-6 ${panelClass} p-6`}>
             <form onSubmit={savePost} className="space-y-3">
-              <input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="Slug (optional)" className="w-full rounded border border-[var(--surface-border)] bg-black/30 px-3 py-2 text-sm" />
-              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Title" className="w-full rounded border border-[var(--surface-border)] bg-black/30 px-3 py-2 text-sm" />
-              <input value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} placeholder="Excerpt" className="w-full rounded border border-[var(--surface-border)] bg-black/30 px-3 py-2 text-sm" />
-              <input value={form.coverImage} onChange={(e) => setForm({ ...form, coverImage: e.target.value })} placeholder="Cover image URL" className="w-full rounded border border-[var(--surface-border)] bg-black/30 px-3 py-2 text-sm" />
+              <input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="Slug (optional)" className={inputClass} />
+              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Title" className={inputClass} />
+              <input value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} placeholder="Excerpt" className={inputClass} />
+              <input value={form.coverImage} onChange={(e) => setForm({ ...form, coverImage: e.target.value })} placeholder="Cover image URL" className={inputClass} />
               <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => void uploadCover(e.target.files?.[0] ?? null)} className="w-full text-xs" />
-              <input value={form.authorId} onChange={(e) => setForm({ ...form, authorId: e.target.value })} placeholder="Author member ID" className="w-full rounded border border-[var(--surface-border)] bg-black/30 px-3 py-2 text-sm" />
-              <input value={form.tags.join(', ')} onChange={(e) => setForm({ ...form, tags: e.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Tags (comma separated)" className="w-full rounded border border-[var(--surface-border)] bg-black/30 px-3 py-2 text-sm" />
-              <div className="rounded border border-[var(--surface-border)] p-3">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">Categories</p>
+              <input value={form.authorId} onChange={(e) => setForm({ ...form, authorId: e.target.value })} placeholder="Author member ID" className={inputClass} />
+              <input value={form.tags.join(', ')} onChange={(e) => setForm({ ...form, tags: e.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Tags (comma separated)" className={inputClass} />
+              <div className="rounded-xl border border-white/10 p-3">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-zinc-500">Categories</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {BLOG_FIXED_CATEGORIES.map((category) => {
                     const selected = form.categories.includes(category)
@@ -431,7 +434,7 @@ export default function BlogAdminPanel() {
                             categories: selected ? form.categories.filter((item) => item !== category) : [...form.categories, category].slice(0, 3),
                           })
                         }
-                        className={`rounded border px-2 py-1 text-xs ${selected ? 'border-[var(--text-main)] text-[var(--text-main)]' : 'border-[var(--surface-border)] text-[var(--text-soft)]'}`}
+                        className={`rounded border px-2 py-1 text-xs ${selected ? 'border-white/70 text-white' : 'border-white/15 text-zinc-400'}`}
                       >
                         {category}
                       </button>
@@ -439,25 +442,25 @@ export default function BlogAdminPanel() {
                   })}
                 </div>
               </div>
-              <textarea value={form.draftContent} onChange={(e) => setForm({ ...form, draftContent: e.target.value })} rows={16} className="w-full rounded border border-[var(--surface-border)] bg-black/30 px-3 py-2 text-sm" />
+              <textarea value={form.draftContent} onChange={(e) => setForm({ ...form, draftContent: e.target.value })} rows={16} className={`${inputClass} min-h-[360px] font-mono`} />
               {!hasEditorialTemplate ? (
                 <p className="text-xs text-amber-300">Recommendation: include Intro, Problem, Solution, Conclusion and CTA sections.</p>
               ) : null}
 
               <div className="flex flex-wrap gap-2">
-                <button type="submit" className="rounded border border-[var(--text-main)] px-4 py-2 text-xs uppercase tracking-[0.14em]">Save</button>
-                <button type="button" onClick={() => setForm({ ...form, draftContent: BLOG_ARTICLE_TEMPLATE })} className="rounded border border-[var(--surface-border)] px-4 py-2 text-xs uppercase tracking-[0.14em]">Apply Template</button>
-                <button type="button" onClick={() => void runEditorAssist()} className="rounded border border-[var(--surface-border)] px-4 py-2 text-xs uppercase tracking-[0.14em]">
+                <button type="submit" className="rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.14em] text-white">Save</button>
+                <button type="button" onClick={() => setForm({ ...form, draftContent: BLOG_ARTICLE_TEMPLATE })} className="rounded-lg border border-white/20 px-4 py-2 text-xs uppercase tracking-[0.14em] text-zinc-300">Apply Template</button>
+                <button type="button" onClick={() => void runEditorAssist()} className="rounded-lg border border-white/70 bg-white px-4 py-2 text-xs uppercase tracking-[0.14em] text-black shadow-[0_0_25px_rgba(255,255,255,0.2)]">
                   {isAssistLoading ? 'Analyzing...' : 'AI Assist'}
                 </button>
-                <button type="button" onClick={() => void runAction('submit_review')} className="rounded border border-[var(--surface-border)] px-4 py-2 text-xs uppercase tracking-[0.14em]">Submit Review</button>
-                <button type="button" onClick={() => void runAction('publish')} className="rounded border border-[var(--surface-border)] px-4 py-2 text-xs uppercase tracking-[0.14em]">Publish</button>
-                <button type="button" onClick={() => void runAction('approve')} className="rounded border border-[var(--surface-border)] px-4 py-2 text-xs uppercase tracking-[0.14em]">Approve</button>
-                <button type="button" onClick={() => void runAction('preview')} className="rounded border border-[var(--surface-border)] px-4 py-2 text-xs uppercase tracking-[0.14em]">Preview Link</button>
+                <button type="button" onClick={() => void runAction('submit_review')} className="rounded-lg border border-white/20 px-4 py-2 text-xs uppercase tracking-[0.14em] text-zinc-300">Submit Review</button>
+                <button type="button" onClick={() => void runAction('publish')} className="rounded-lg border border-white/20 px-4 py-2 text-xs uppercase tracking-[0.14em] text-zinc-300">Publish</button>
+                <button type="button" onClick={() => void runAction('approve')} className="rounded-lg border border-white/20 px-4 py-2 text-xs uppercase tracking-[0.14em] text-zinc-300">Approve</button>
+                <button type="button" onClick={() => void runAction('preview')} className="rounded-lg border border-white/20 px-4 py-2 text-xs uppercase tracking-[0.14em] text-zinc-300">Preview Link</button>
               </div>
               <div className="flex items-center gap-2">
-                <input type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} className="rounded border border-[var(--surface-border)] bg-black/30 px-3 py-2 text-xs" />
-                <button type="button" onClick={() => void runAction('schedule')} className="rounded border border-[var(--surface-border)] px-4 py-2 text-xs uppercase tracking-[0.14em]">Schedule</button>
+                <input type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} className="rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-xs" />
+                <button type="button" onClick={() => void runAction('schedule')} className="rounded-lg border border-white/20 px-4 py-2 text-xs uppercase tracking-[0.14em] text-zinc-300">Schedule</button>
               </div>
               {previewUrl ? <p className="text-xs text-[var(--text-soft)]">Preview: {previewUrl}</p> : null}
               {feedback ? <p className="text-xs text-[var(--text-soft)]">{feedback}</p> : null}
@@ -487,9 +490,9 @@ export default function BlogAdminPanel() {
             </form>
           </section>
 
-          <section className="space-y-6">
+          <section className="space-y-6 xl:col-span-3">
             <AdminSemanticPanel secureFetch={secureFetch} />
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+            <div className={`${panelClass} p-4`}>
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Async Jobs</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={() => void enqueueJob('embeddings_reindex')} className="rounded border border-[var(--surface-border)] px-3 py-2 text-[10px] uppercase tracking-[0.12em]">
@@ -504,7 +507,7 @@ export default function BlogAdminPanel() {
               </div>
               {opsFeedback ? <p className="mt-2 text-xs text-[var(--text-soft)]">{opsFeedback}</p> : null}
             </div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+            <div className={`${panelClass} p-4`}>
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Live preview</p>
               <h2 className="mt-2 text-2xl font-semibold">{form.title || 'Untitled'}</h2>
               <p className="mt-2 text-sm text-[var(--text-soft)]">{form.excerpt}</p>
@@ -518,7 +521,7 @@ export default function BlogAdminPanel() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+            <div className={`${panelClass} p-4`}>
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Pending comments</p>
               <ul className="mt-3 space-y-3">
                 {pendingComments.map((comment) => (
@@ -535,7 +538,7 @@ export default function BlogAdminPanel() {
               </ul>
             </div>
 
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+            <div className={`${panelClass} p-4`}>
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Post Analytics</p>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-full text-left text-xs">
@@ -567,7 +570,7 @@ export default function BlogAdminPanel() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+            <div className={`${panelClass} p-4`}>
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">API Ops Metrics</p>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-full text-left text-xs">
@@ -599,7 +602,7 @@ export default function BlogAdminPanel() {
             </div>
 
             {growth ? (
-              <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+              <div className={`${panelClass} p-4`}>
                 <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Growth Intelligence</p>
                 <p className="mt-2 text-xs text-[var(--text-soft)]">Retention: {growth.retentionRatePercent}%</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -634,7 +637,7 @@ export default function BlogAdminPanel() {
             ) : null}
 
             {seoGaps ? (
-              <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+              <div className={`${panelClass} p-4`}>
                 <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">SEO Gaps Report</p>
                 <p className="mt-2 text-xs text-[var(--text-soft)]">
                   Thin: {seoGaps.thinContentCount} | Missing template: {seoGaps.missingTemplateCount} | No internal links: {seoGaps.noInternalLinkCount}
@@ -657,7 +660,7 @@ export default function BlogAdminPanel() {
               </div>
             ) : null}
 
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4">
+            <div className={`${panelClass} p-4`}>
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Editorial Calendar</p>
               <ul className="mt-3 space-y-3">
                 {BLOG_EDITORIAL_CALENDAR.map((item) => (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { appendAuditLog } from '@/lib/audit-log'
+import { buildFieldDiff } from '@/lib/audit-diff'
 import { requireAnyRole, requireCsrfHeader } from '@/lib/api-guards'
 import { createApiRequestContext, jsonApiError, logApiError, withRequestId } from '@/lib/api-monitor'
 import { getDirectoryMemberById, softDeleteDirectoryMember, updateDirectoryMember } from '@/lib/member-directory-store'
@@ -61,10 +62,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       userAgent: request.headers.get('user-agent') ?? 'unknown',
       meta: {
         requestId: ctx.requestId,
-        diff: {
-          before,
-          after: updated,
-        },
+        diff: buildFieldDiff(before as Record<string, unknown> | null, updated as unknown as Record<string, unknown>),
         durationMs: Date.now() - ctx.startedAt,
       },
     })

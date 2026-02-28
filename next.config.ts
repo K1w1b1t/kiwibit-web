@@ -1,7 +1,17 @@
 import type { NextConfig } from 'next'
+import path from 'path'
 
 const nextConfig: NextConfig = {
   compress: true,
+  outputFileTracingRoot: path.resolve(__dirname),
+  webpack: (config) => {
+    config.ignoreWarnings = config.ignoreWarnings ?? []
+    config.ignoreWarnings.push({
+      module: /@opentelemetry\/instrumentation/,
+      message: /Critical dependency: the request of a dependency is an expression/,
+    })
+    return config
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60 * 60 * 24 * 30,

@@ -40,7 +40,7 @@ export function verifyCsrfToken(token?: string | null) {
 export function csrfCookieOptions() {
   return {
     httpOnly: false,
-    sameSite: 'lax' as const,
+    sameSite: 'strict' as const,
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: 60 * 60 * 6,

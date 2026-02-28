@@ -5,8 +5,9 @@ import { cookies } from 'next/headers'
 import { getSessionFromCookiesAsync } from '@/lib/session'
 import { isObjectStorageEnabled, uploadObjectToStorage } from '@/lib/object-storage'
 import { createApiRequestContext, jsonApiError, logApiError, withRequestId } from '@/lib/api-monitor'
-import { enforceCsrf, enforceDailyLimit, getClientIp, getCsrfCookieName } from '@/lib/security'
+import { enforceCsrf, enforceDailyLimit, enforceRateLimit, getClientIp, getCsrfCookieName } from '@/lib/security'
 import { verifyUploadToken } from '@/lib/upload-signature'
+import { validateUploadedImage } from '@/lib/upload-security'
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -35,7 +36,11 @@ export async function POST(request: Request) {
       return jsonApiError(ctx, 403, 'Invalid CSRF token')
     }
     const ip = getClientIp(request)
+    const rate = await enforceRateLimit(`admin-avatar:${ip}:${session.memberId}`, 40)
     const daily = await enforceDailyLimit(`admin-upload-daily:${ip}:${session.memberId}`, 200)
+    if (!rate.allowed) {
+      return jsonApiError(ctx, 429, 'Too many requests')
+    }
     if (!daily.allowed) {
       return jsonApiError(ctx, 429, 'Daily upload limit reached')
     }
@@ -45,15 +50,16 @@ export async function POST(request: Request) {
     if (!(rawFile instanceof File)) {
       return jsonApiError(ctx, 400, 'Invalid file payload')
     }
-    if (!ALLOWED_TYPES.has(rawFile.type)) {
-      return jsonApiError(ctx, 400, 'Only JPG, PNG and WEBP are allowed')
-    }
     if (rawFile.size > MAX_UPLOAD_BYTES) {
       return jsonApiError(ctx, 400, 'Max file size is 5MB')
     }
 
     const bytes = await rawFile.arrayBuffer()
     const buffer = Buffer.from(bytes)
+    const imageCheck = validateUploadedImage(buffer, rawFile.type, ALLOWED_TYPES)
+    if (!imageCheck.ok) {
+      return jsonApiError(ctx, 400, imageCheck.error)
+    }
     if (process.env.AV_SCAN_WEBHOOK_URL) {
       try {
         const scan = await fetch(process.env.AV_SCAN_WEBHOOK_URL, {
@@ -97,8 +103,8 @@ export async function POST(request: Request) {
     const fileBase = `${Date.now()}-${baseName}`
     const fileName = `${fileBase}.webp`
     const fileNameAvif = `${fileBase}.avif`
-    const outputBuffer = await sharpModule(buffer).rotate().resize(640).webp({ quality: 84 }).toBuffer()
-    const outputAvif = await sharpModule(buffer).rotate().resize(640).avif({ quality: 62 }).toBuffer()
+    const outputBuffer = await sharpModule(buffer).rotate().resize(640, 640, { fit: 'cover', withoutEnlargement: true }).webp({ quality: 84 }).toBuffer()
+    const outputAvif = await sharpModule(buffer).rotate().resize(640, 640, { fit: 'cover', withoutEnlargement: true }).avif({ quality: 62 }).toBuffer()
 
     if (isObjectStorageEnabled()) {
       const uploaded = await uploadObjectToStorage({
