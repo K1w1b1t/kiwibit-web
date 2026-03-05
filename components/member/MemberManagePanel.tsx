@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -127,6 +127,7 @@ export default function MemberManagePanel() {
   const [rawPreviewImage, setRawPreviewImage] = useState<string | null>(null)
   const [cropZoom, setCropZoom] = useState(1)
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
+  const [uploadToken, setUploadToken] = useState<string | null>(null)
   const [role, setRole] = useState<'member' | 'admin'>('member')
   const [moderationStatus, setModerationStatus] = useState<'draft' | 'pending_review' | 'published'>('published')
   const [pendingAt, setPendingAt] = useState<string | undefined>(undefined)
@@ -138,7 +139,7 @@ export default function MemberManagePanel() {
 
   const member = draft
 
-  async function secureFetch(url: string, init?: RequestInit) {
+  const secureFetch = useCallback(async (url: string, init?: RequestInit) => {
     const headers = new Headers(init?.headers ?? {})
     if (!headers.has('content-type') && !(init?.body instanceof FormData)) {
       headers.set('content-type', 'application/json')
@@ -150,9 +151,9 @@ export default function MemberManagePanel() {
       ...init,
       headers,
     })
-  }
+  }, [csrfToken])
 
-  function applyServerState(payload: ManagedResponse) {
+  const applyServerState = useCallback((payload: ManagedResponse) => {
     setDraft(payload.draft)
     setPublished(payload.published)
     setVersions(payload.versions)
@@ -161,16 +162,21 @@ export default function MemberManagePanel() {
     setModerationStatus(payload.moderationStatus)
     setPendingAt(payload.pendingAt)
     setDirty(false)
-  }
+  }, [])
 
-  async function loadProfile() {
+  const loadProfile = useCallback(async () => {
     const authResponse = await fetch('/api/auth/me')
     if (!authResponse.ok) {
       router.push('/login')
       return
     }
-    const authData = (await authResponse.json()) as { csrfToken?: string; role?: 'member' | 'admin' }
+    const authData = (await authResponse.json()) as {
+      csrfToken?: string
+      role?: 'member' | 'admin'
+      uploadTokens?: { memberAvatar?: string | null }
+    }
     if (authData.csrfToken) setCsrfToken(authData.csrfToken)
+    if (authData.uploadTokens?.memberAvatar) setUploadToken(authData.uploadTokens.memberAvatar)
     if (authData.role) setRole(authData.role)
 
     const response = await fetch('/api/member/me')
@@ -188,18 +194,18 @@ export default function MemberManagePanel() {
       }
     }
     setIsLoading(false)
-  }
+  }, [applyServerState, router])
 
   useEffect(() => {
     void loadProfile()
-  }, [])
+  }, [loadProfile])
 
   const previewAvatar = useMemo(() => {
     if (rawPreviewImage) return rawPreviewImage
     return member?.avatar ?? ''
   }, [member?.avatar, rawPreviewImage])
 
-  async function saveDraft(showMessage = true) {
+  const saveDraft = useCallback(async (showMessage = true) => {
     if (!draft) return false
     setIsSaving(true)
     if (showMessage) setFeedback('')
@@ -219,7 +225,7 @@ export default function MemberManagePanel() {
     if (showMessage) setFeedback('Rascunho salvo e nova versao criada.')
     setIsSaving(false)
     return true
-  }
+  }, [applyServerState, draft, secureFetch])
 
   async function handleSaveDraft(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -235,7 +241,7 @@ export default function MemberManagePanel() {
     return () => {
       if (autosaveRef.current) clearInterval(autosaveRef.current)
     }
-  }, [dirty, isLoading, draft, csrfToken])
+  }, [dirty, isLoading, saveDraft])
 
   async function handlePublishOrSubmit() {
     setIsPublishing(true)
@@ -281,7 +287,7 @@ export default function MemberManagePanel() {
       return
     }
     setPendingList((list) => list.filter((item) => item.memberId !== targetMemberId))
-    if (targetMemberId === member.id) {
+    if (targetMemberId === member?.id) {
       const data = (await response.json()) as { ok: true; managed: ManagedResponse }
       applyServerState(data.managed)
     }
@@ -351,6 +357,7 @@ export default function MemberManagePanel() {
       formData.append('file', file)
       const response = await secureFetch('/api/member/upload', {
         method: 'POST',
+        headers: uploadToken ? { 'x-upload-token': uploadToken } : undefined,
         body: formData,
       })
       if (!response.ok) {
@@ -421,7 +428,7 @@ export default function MemberManagePanel() {
         <div className="grid gap-6 xl:grid-cols-[320px_1fr_320px]">
           <aside className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-5">
             <div className="mx-auto w-fit overflow-hidden rounded-2xl border border-[var(--surface-border)]">
-              <Image src={previewAvatar} alt={member.realName} width={260} height={300} className="h-[300px] w-[260px] object-cover grayscale" />
+              <Image src={previewAvatar} alt={member.realName} width={260} height={300} className="h-[300px] w-[260px] object-cover" />
             </div>
             <div className="mt-5 space-y-3">
               <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleAvatarFileSelection(e.target.files?.[0] ?? null)} className="block w-full text-xs" />
@@ -531,3 +538,4 @@ export default function MemberManagePanel() {
     </div>
   )
 }
+

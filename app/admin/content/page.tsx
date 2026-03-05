@@ -9,5 +9,8 @@ export default async function AdminContentPage() {
   if (!session) {
     redirect('/login')
   }
+  if (session.role !== 'admin' && session.role !== 'editor') {
+    redirect('/member/manage')
+  }
   return <BlogAdminPanel />
 }

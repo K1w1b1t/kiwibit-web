@@ -4,10 +4,12 @@ import { isRedisEnabled, redisDel, redisGet, redisSetEx } from '@/lib/redis'
 export const SESSION_COOKIE = 'kb_session'
 const SESSION_TTL_SECONDS = 60 * 60 * 12
 
+export type SessionRole = 'member' | 'member_manager' | 'editor' | 'admin'
+
 type SessionPayload = {
   memberId: string
   email: string
-  role: 'member' | 'admin'
+  role: SessionRole
   exp: number
 }
 
@@ -32,7 +34,7 @@ function tokenKey(token: string) {
   return `sess:${hash}`
 }
 
-export function createSessionToken(memberId: string, email: string, role: 'member' | 'admin') {
+export function createSessionToken(memberId: string, email: string, role: SessionRole) {
   const payload: SessionPayload = {
     memberId,
     email,
@@ -64,7 +66,7 @@ export function verifySessionToken(token?: string | null): SessionPayload | null
   }
 }
 
-export async function createSessionTokenPersisted(memberId: string, email: string, role: 'member' | 'admin') {
+export async function createSessionTokenPersisted(memberId: string, email: string, role: SessionRole) {
   const token = createSessionToken(memberId, email, role)
   if (isRedisEnabled()) {
     await redisSetEx(tokenKey(token), SESSION_TTL_SECONDS, '1')
@@ -103,7 +105,7 @@ export async function getSessionFromCookiesAsync(cookieStore: CookieLikeStore) {
 export function sessionCookieOptions() {
   return {
     httpOnly: true,
-    sameSite: 'lax' as const,
+    sameSite: 'strict' as const,
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: SESSION_TTL_SECONDS,

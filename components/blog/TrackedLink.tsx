@@ -12,6 +12,10 @@ type TrackedLinkProps = {
 }
 
 export default function TrackedLink({ href, tag, slug, className, children }: TrackedLinkProps) {
+  const visitorId =
+    typeof window !== 'undefined'
+      ? window.localStorage.getItem('kb_visitor_id') ?? 'visitor'
+      : 'visitor'
   return (
     <Link
       href={href}
@@ -20,7 +24,7 @@ export default function TrackedLink({ href, tag, slug, className, children }: Tr
         void fetch('/api/blog/analytics/track', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ type: 'tag_click', tag, slug }),
+          body: JSON.stringify({ type: 'tag_click', tag, slug, visitorId }),
         })
       }}
     >

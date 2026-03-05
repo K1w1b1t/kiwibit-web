@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { MEMBER_IDS } from '@/data/members'
 import { appendAuditLog } from '@/lib/audit-log'
+import { getDirectoryMemberById } from '@/lib/member-directory-store'
 import { approvePendingMemberById, getManagedMemberById, publishDraftMemberById, revertDraftMemberByVersion, saveDraftMemberById } from '@/lib/member-store'
 import { createPreviewToken } from '@/lib/preview-token'
 import { enforceCsrf, enforceRateLimit, getClientIp, getCsrfCookieName } from '@/lib/security'
-import { getSessionFromCookiesAsync } from '@/lib/session'
+import { getSessionFromCookiesAsync, type SessionRole } from '@/lib/session'
 import { memberDraftSchema } from '@/lib/validation'
 import { z } from 'zod'
 
@@ -17,13 +17,25 @@ const actionSchema = z.object({
 
 const MEMBER_ONLY_FIELDS = ['clearance', 'contactEmail'] as const
 
-function stripRestrictedFieldsForMember(payload: Record<string, unknown>, role: 'member' | 'admin') {
+function stripRestrictedFieldsForMember(payload: Record<string, unknown>, role: SessionRole) {
   if (role === 'admin') return payload
   const clone = { ...payload }
   for (const key of MEMBER_ONLY_FIELDS) {
     delete clone[key]
   }
   return clone
+}
+
+function actorRole(role: SessionRole): 'member' | 'admin' {
+  return role === 'admin' ? 'admin' : 'member'
+}
+
+async function safeReadJson(request: Request): Promise<Record<string, unknown> | null> {
+  try {
+    return (await request.json()) as Record<string, unknown>
+  } catch {
+    return null
+  }
 }
 
 export async function GET() {
@@ -58,7 +70,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
   }
 
-  const raw = (await request.json()) as Record<string, unknown>
+  const raw = await safeReadJson(request)
+  if (!raw) {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+  }
   const filtered = stripRestrictedFieldsForMember(raw, session.role)
   const parsed = memberDraftSchema.safeParse(filtered)
   if (!parsed.success) {
@@ -99,7 +114,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
   }
 
-  const parsed = actionSchema.safeParse(await request.json())
+  const body = await safeReadJson(request)
+  if (!body) {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+  }
+  const parsed = actionSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid action payload' }, { status: 400 })
   }
@@ -111,7 +130,7 @@ export async function POST(request: Request) {
   }
 
   if (payload.action === 'publish') {
-    const managed = await publishDraftMemberById(session.memberId, session.role)
+    const managed = await publishDraftMemberById(session.memberId, actorRole(session.role))
     if (!managed) {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 })
     }
@@ -153,7 +172,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const target = payload.memberId
-    if (!target || !MEMBER_IDS.includes(target)) {
+    if (!target || !(await getDirectoryMemberById(target))) {
       return NextResponse.json({ error: 'Invalid memberId' }, { status: 400 })
     }
     const managed = await approvePendingMemberById(target)

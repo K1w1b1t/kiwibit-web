@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { BLOG_FIXED_CATEGORIES } from '@/data/blog-editorial'
+import { isStrongPassword, passwordPolicyMessage } from '@/lib/password-policy'
 
 export const skillSchema = z.object({
   name: z.string().min(2).max(60),
@@ -38,7 +40,7 @@ export const blogPostInputSchema = z.object({
   coverImage: z.string().url().or(z.string().regex(/^\/uploads\/.+/)),
   authorId: z.string().min(1),
   tags: z.array(z.string().min(1).max(40)).min(1).max(12),
-  categories: z.array(z.string().min(1).max(40)).min(1).max(6),
+  categories: z.array(z.enum(BLOG_FIXED_CATEGORIES)).min(1).max(3),
   featured: z.boolean(),
   draftContent: z.string().min(60).max(20000),
 })
@@ -59,4 +61,28 @@ export const blogCommentSchema = z.object({
 
 export const newsletterSchema = z.object({
   email: z.string().email(),
+  segment: z.string().min(2).max(60).optional(),
+  source: z.string().min(2).max(80).optional(),
+  variant: z.enum(['A', 'B']).optional(),
+  visitorId: z.string().min(3).max(80).optional(),
+})
+
+export const memberDirectorySchema = z.object({
+  name: z.string().min(2).max(120),
+  role: z.string().min(2).max(120),
+  bio: z.string().min(20).max(1500),
+  avatar_url: z.string().url().or(z.string().regex(/^\/uploads\/.+/)),
+  specialties: z.array(z.string().min(1).max(60)).min(1).max(20),
+  github_url: z.string().url().optional().or(z.literal('')),
+  linkedin_url: z.string().url().optional().or(z.literal('')),
+  highlights: z.array(z.string().min(1).max(180)).max(20).optional(),
+  account_email: z.string().email().optional().or(z.literal('')),
+  account_password: z
+    .string()
+    .min(8)
+    .max(120)
+    .refine((value) => value.length === 0 || isStrongPassword(value), passwordPolicyMessage())
+    .optional()
+    .or(z.literal('')),
+  access_role: z.enum(['admin', 'editor', 'member_manager', 'member']).optional(),
 })

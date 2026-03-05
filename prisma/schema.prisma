@@ -10,6 +10,8 @@ datasource db {
 
 enum UserRole {
   member
+  editor
+  member_manager
   admin
 }
 
@@ -68,15 +70,19 @@ model MemberProfileState {
 }
 
 model MemberAccount {
-  id         String    @id @default(cuid())
-  memberId   String    @unique
-  email      String    @unique
-  password   String
-  role       UserRole  @default(member)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  member     Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  sessions   Session[]
+  id                   String    @id @default(cuid())
+  memberId             String    @unique
+  email                String    @unique
+  password             String
+  role                 UserRole  @default(member)
+  isActive             Boolean   @default(true)
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  passwordChangedAt    DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  member               Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sessions             Session[]
 }
 
 model Session {
@@ -107,6 +113,17 @@ model BlogPost {
   publishedContent String?
   author          Member      @relation(fields: [authorId], references: [id], onDelete: Restrict)
   comments        BlogComment[]
+  embedding       BlogEmbedding?
+}
+
+model BlogEmbedding {
+  id         String   @id @default(cuid())
+  postId     String   @unique
+  model      String
+  dimensions Int
+  vector     Unsupported("vector")
+  updatedAt  DateTime @updatedAt
+  post       BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 }
 
 model BlogComment {
@@ -149,4 +166,18 @@ model AuditEvent {
   ip            String
   userAgent     String
   meta          Json?
+}
+
+model AnalyticsDaily {
+  id               String   @id @default(cuid())
+  day              DateTime @unique
+  events           Int      @default(0)
+  uniqueVisitors   Int      @default(0)
+  postReads        Int      @default(0)
+  ctaClicks        Int      @default(0)
+  shares           Int      @default(0)
+  newsletterStarts Int      @default(0)
+  newsletterConfirms Int    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

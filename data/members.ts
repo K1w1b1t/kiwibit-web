@@ -59,7 +59,7 @@ export const MEMBERS_BY_ID: Record<string, Member> = {
     speciality: 'Cyber Security Specialist',
     bio: 'Software engineer focused on secure architectures, pentest workflows, and practical hardening for modern web platforms.',
     clearance: 'L-05',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400&h=400&auto=format&fit=crop',
+    avatar: 'https://avatars.githubusercontent.com/gustavorodr?size=400',
     skills: [
       { name: 'Kernel Exploitation', category: 'technical' },
       { name: 'C/C++', category: 'technical' },
@@ -77,7 +77,7 @@ export const MEMBERS_BY_ID: Record<string, Member> = {
     speciality: 'Systems Analysis',
     bio: 'Systems Analysis and Development student with emphasis on secure coding, network fundamentals, and incident response.',
     clearance: 'L-04',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=400&h=400&auto=format&fit=crop',
+    avatar: 'https://avatars.githubusercontent.com/ReaperKoji?size=400',
     skills: [
       { name: 'Threat Modeling', category: 'technical' },
       { name: 'SOC Analysis', category: 'technical' },
@@ -95,7 +95,7 @@ export const MEMBERS_BY_ID: Record<string, Member> = {
     speciality: 'Database Administrator',
     bio: 'Focused on data integrity, SQL performance tuning, backup strategies, and secure access governance for business-critical systems.',
     clearance: 'L-04',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=400&h=400&auto=format&fit=crop',
+    avatar: 'https://avatars.githubusercontent.com/Porisso90?size=400',
     skills: [
       { name: 'SQL Optimization', category: 'technical' },
       { name: 'Database Security', category: 'technical' },
@@ -113,7 +113,7 @@ export const MEMBERS_BY_ID: Record<string, Member> = {
     speciality: 'Multiplatform Developer',
     bio: 'Builds cross-platform applications with clean architecture, API integration, and consistent UX from web to mobile.',
     clearance: 'L-03',
-    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=400&h=400&auto=format&fit=crop',
+    avatar: 'https://avatars.githubusercontent.com/Pedryn?size=400',
     skills: [
       { name: 'React Ecosystem', category: 'technical' },
       { name: 'Mobile Integration', category: 'technical' },
@@ -131,7 +131,7 @@ export const MEMBERS_BY_ID: Record<string, Member> = {
     speciality: 'Computer Science',
     bio: 'Computer science student with strong base in algorithms, operating systems, and secure software engineering.',
     clearance: 'L-03',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=400&h=400&auto=format&fit=crop',
+    avatar: 'https://avatars.githubusercontent.com/TMaia09?size=400',
     skills: [
       { name: 'Algorithms', category: 'technical' },
       { name: 'System Design', category: 'technical' },

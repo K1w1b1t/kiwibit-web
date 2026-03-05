@@ -14,6 +14,16 @@ type BlogPostClientProps = {
   initialComments: Comment[]
 }
 
+function getVisitorId() {
+  if (typeof window === 'undefined') return 'visitor'
+  const key = 'kb_visitor_id'
+  const existing = window.localStorage.getItem(key)
+  if (existing) return existing
+  const created = `v_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+  window.localStorage.setItem(key, created)
+  return created
+}
+
 function formatDate(value: string) {
   const date = new Date(value)
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(date)
@@ -39,7 +49,7 @@ export default function BlogPostClient({ slug, initialComments }: BlogPostClient
         void fetch('/api/blog/analytics/track', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ type: 'scroll_depth', slug, depth }),
+          body: JSON.stringify({ type: 'scroll_depth', slug, depth, visitorId: getVisitorId() }),
         })
       }
     }
@@ -50,20 +60,80 @@ export default function BlogPostClient({ slug, initialComments }: BlogPostClient
   useEffect(() => {
     const onLeave = () => {
       const ms = Date.now() - enteredAt
-      navigator.sendBeacon('/api/blog/analytics/track', JSON.stringify({ type: 'post_dwell', slug, ms }))
+      navigator.sendBeacon('/api/blog/analytics/track', JSON.stringify({ type: 'post_dwell', slug, ms, visitorId: getVisitorId() }))
     }
     window.addEventListener('beforeunload', onLeave)
     return () => window.removeEventListener('beforeunload', onLeave)
   }, [enteredAt, slug])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return
+    const tracked = new Set<string>()
+
+    const sendMetric = (metric: 'LCP' | 'CLS' | 'INP' | 'FCP' | 'TTFB', value: number) => {
+      const key = `${metric}:${Math.round(value)}`
+      if (tracked.has(key)) return
+      tracked.add(key)
+      void fetch('/api/blog/analytics/performance', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ slug, metric, value, page: window.location.pathname, visitorId: getVisitorId() }),
+      })
+    }
+
+    let lcpObserver: PerformanceObserver | null = null
+    let paintObserver: PerformanceObserver | null = null
+
+    try {
+      lcpObserver = new PerformanceObserver((entryList) => {
+        const entries = entryList.getEntries()
+        const last = entries[entries.length - 1]
+        if (last) sendMetric('LCP', last.startTime)
+      })
+      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true })
+    } catch {
+      // Browser does not support this metric type.
+    }
+
+    try {
+      paintObserver = new PerformanceObserver((entryList) => {
+        for (const entry of entryList.getEntries()) {
+          if (entry.name === 'first-contentful-paint') sendMetric('FCP', entry.startTime)
+        }
+      })
+      paintObserver.observe({ type: 'paint', buffered: true })
+    } catch {
+      // Browser does not support this metric type.
+    }
+
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    if (nav) {
+      sendMetric('TTFB', nav.responseStart)
+    }
+
+    return () => {
+      lcpObserver?.disconnect()
+      paintObserver?.disconnect()
+    }
+  }, [slug])
+
+  function trackCta(cta: string) {
+    void fetch('/api/blog/analytics/track', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'post_cta_click', slug, cta, visitorId: getVisitorId() }),
+    })
+  }
+
   async function submitComment(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    trackCta('comment_submit')
     setFeedback('')
     setIsSending(true)
     const response = await fetch('/api/blog/comments', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug, name, email, message }),
+      body: JSON.stringify({ slug, name, email, message, visitorId: getVisitorId() }),
     })
     if (!response.ok) {
       setFeedback('Comment blocked or invalid. Please review your message.')

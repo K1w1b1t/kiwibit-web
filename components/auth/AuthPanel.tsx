@@ -43,10 +43,10 @@ export default function AuthPanel() {
   const handleAuthorize = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateEmail(email) || password.length < 4) {
+    if (!validateEmail(email) || password.length < 8) {
       setStatus('DENIED')
       setError(true)
-      setErrorMessage('Invalid input format.')
+      setErrorMessage('Use valid email and password with at least 8 chars.')
       setTimeout(() => {
         setStatus('IDLE')
         setError(false)

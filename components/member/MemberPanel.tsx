@@ -14,6 +14,30 @@ type SectionItem = {
 
 type ContactStatus = 'idle' | 'sending' | 'success' | 'error'
 
+type MemberGithubRepo = {
+  name: string
+  htmlUrl: string
+  description: string
+  language: string
+  stars: number
+  pushedAt: string
+}
+
+type MemberGithubProfile = {
+  username: string
+  profileUrl: string
+  avatarUrl: string
+  bio: string
+  followers: number
+  following: number
+  publicRepos: number
+}
+
+type MemberReputation = {
+  score: number
+  level: 'starter' | 'builder' | 'pro' | 'elite'
+}
+
 const sectionStagger = {
   hidden: { opacity: 0 },
   show: {
@@ -27,12 +51,12 @@ const sectionStagger = {
 
 const heroReveal = {
   hidden: { opacity: 0, y: 36 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.2, 0.8, 0.2, 1] } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.2, 0.8, 0.2, 1] as const } },
 }
 
 const sectionReveal = {
   hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: [0.2, 0.8, 0.2, 1] } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: [0.2, 0.8, 0.2, 1] as const } },
 }
 
 function Header({
@@ -88,7 +112,7 @@ function Header({
               >
                 <div
                   className={`h-9 w-9 overflow-hidden rounded-full ring-1 ring-[var(--surface-border)] transition-all group-hover:scale-105 ${
-                    isActive ? 'ring-2 ring-[var(--text-main)]' : 'opacity-50 grayscale'
+                    isActive ? 'ring-2 ring-[var(--text-main)]' : 'opacity-70'
                   }`}
                 >
                   <Image src={member.avatar} alt={member.codename} width={36} height={36} sizes="36px" className="h-full w-full object-cover" />
@@ -126,7 +150,7 @@ function HeroSection({ member, parallaxY }: { member: Member; parallaxY: number 
               height={420}
               sizes="(max-width: 1024px) 320px, 420px"
               priority
-              className="h-[26rem] w-[22rem] rounded-lg object-cover grayscale md:h-[28rem] md:w-[26rem]"
+              className="h-[26rem] w-[22rem] rounded-lg object-cover md:h-[28rem] md:w-[26rem]"
             />
           </div>
         </motion.div>
@@ -151,7 +175,7 @@ function AboutSection({ member }: { member: Member }) {
         </div>
 
         <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-6 shadow-sm">
-          <Image src={member.avatar} alt={`${member.codename} avatar`} width={80} height={80} sizes="80px" className="rounded-full grayscale" />
+          <Image src={member.avatar} alt={`${member.codename} avatar`} width={80} height={80} sizes="80px" className="rounded-full" />
           <p className="mt-4 text-sm text-[var(--text-soft)]">"We saw a massive improvement in engagement. The design was not just beautiful but effective."</p>
         </div>
       </div>
@@ -160,8 +184,137 @@ function AboutSection({ member }: { member: Member }) {
 }
 
 function ProjectsSection({ member }: { member: Member }) {
+  const [repos, setRepos] = useState<MemberGithubRepo[]>([])
+  const [githubProfile, setGithubProfile] = useState<MemberGithubProfile | null>(null)
+  const [githubMetrics, setGithubMetrics] = useState<{ totalStars: number; totalRepos: number } | null>(null)
+  const [reputation, setReputation] = useState<MemberReputation | null>(null)
+  const [loadingRepos, setLoadingRepos] = useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    async function loadRepos() {
+      setLoadingRepos(true)
+      try {
+        const [response, repResponse] = await Promise.all([
+          fetch(`/api/github/member/${member.id}`),
+          fetch(`/api/member/reputation/${member.id}`),
+        ])
+        if (!response.ok) {
+          if (active) setRepos([])
+          return
+        }
+
+        const payload = (await response.json()) as {
+          profile?: MemberGithubProfile | null
+          repos?: MemberGithubRepo[]
+          metrics?: { totalStars: number; totalRepos: number }
+        }
+        if (active) {
+          setGithubProfile(payload.profile ?? null)
+          setRepos(Array.isArray(payload.repos) ? payload.repos : [])
+          setGithubMetrics(payload.metrics ?? null)
+          if (repResponse.ok) {
+            const repPayload = (await repResponse.json()) as MemberReputation
+            setReputation(repPayload)
+          }
+        }
+      } catch {
+        if (active) {
+          setRepos([])
+          setGithubProfile(null)
+          setGithubMetrics(null)
+          setReputation(null)
+        }
+      } finally {
+        if (active) setLoadingRepos(false)
+      }
+    }
+
+    void loadRepos()
+    return () => {
+      active = false
+    }
+  }, [member.id])
+
+  if (loadingRepos) {
+    return (
+      <section id="projects" className="pb-24">
+        <div className="mx-auto max-w-6xl px-4 md:px-8">
+          <p className="text-sm text-[var(--text-muted)]">Loading GitHub repositories...</p>
+        </div>
+      </section>
+    )
+  }
+
+  if (repos.length > 0) {
+    return (
+      <section id="projects" className="pb-24">
+        <div className="mx-auto max-w-6xl px-4 md:px-8">
+          <div className="mb-8 flex flex-col gap-6 rounded-2xl border border-[var(--surface-border)] bg-[linear-gradient(120deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
+              {githubProfile ? (
+                <Image src={githubProfile.avatarUrl} alt={githubProfile.username} width={52} height={52} className="h-13 w-13 rounded-full border border-[var(--surface-border)]" />
+              ) : (
+                <div className="h-13 w-13 rounded-full border border-[var(--surface-border)] bg-[var(--surface-card)]" />
+              )}
+              <div>
+                <h3 className="text-2xl font-semibold text-[var(--text-main)]">GitHub Portfolio</h3>
+                <p className="text-sm text-[var(--text-soft)]">
+                  {githubProfile ? githubProfile.bio : 'Member repositories synced from GitHub API.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              {githubProfile ? (
+                <a href={githubProfile.profileUrl} target="_blank" rel="noreferrer" className="rounded border border-[var(--surface-border)] px-3 py-1 hover:border-[var(--text-main)] hover:text-[var(--text-main)]">
+                  @{githubProfile.username}
+                </a>
+              ) : null}
+              <span className="rounded border border-[var(--surface-border)] px-3 py-1">{repos.length} repos</span>
+              <span className="rounded border border-[var(--surface-border)] px-3 py-1">
+                {githubMetrics?.totalStars ?? repos.reduce((sum, repo) => sum + repo.stars, 0)} stars
+              </span>
+              {reputation ? <span className="rounded border border-[var(--surface-border)] px-3 py-1">rep {reputation.level} ({reputation.score})</span> : null}
+              {githubProfile ? <span className="rounded border border-[var(--surface-border)] px-3 py-1">{githubProfile.followers} followers</span> : null}
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {repos.map((repo) => (
+              <motion.article key={repo.htmlUrl} whileHover={{ y: -4 }} className="group rounded-xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-5">
+                <a href={repo.htmlUrl} target="_blank" rel="noreferrer" className="block">
+                  <div className="mb-4 flex items-center justify-between gap-4">
+                    <h4 className="text-lg font-semibold text-[var(--text-main)]">{repo.name}</h4>
+                    <span className="text-xs text-[var(--text-muted)]">Stars: {repo.stars}</span>
+                  </div>
+                  <p className="text-sm leading-relaxed text-[var(--text-soft)]">{repo.description}</p>
+                  <div className="mt-4 flex items-center gap-3">
+                    <span className="rounded border border-[var(--surface-border)] px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">{repo.language}</span>
+                    <span className="rounded border border-[var(--surface-border)] px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                      stars {repo.stars}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                      Updated {new Date(repo.pushedAt).toLocaleDateString('en-US')}
+                    </span>
+                  </div>
+                </a>
+              </motion.article>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section id="projects" className="pb-24">
+      <div className="mx-auto max-w-6xl px-4 md:px-8">
+        <div className="mb-6 rounded-xl border border-dashed border-[var(--surface-border)] bg-[var(--surface-card)] p-4 text-sm text-[var(--text-soft)]">
+          GitHub profile not found for this member yet. Configure username in `data/member-github.ts`.
+        </div>
+      </div>
       <div className="mx-auto grid max-w-6xl gap-8 px-4 md:grid-cols-3 md:px-8">
         {member.projects.map((project) => (
           <motion.article key={project.title} whileHover={{ y: -4 }} className="group">
@@ -499,3 +652,5 @@ export default function MemberPanel({ initialMemberId, initialMemberData }: Memb
     </div>
   )
 }
+
+

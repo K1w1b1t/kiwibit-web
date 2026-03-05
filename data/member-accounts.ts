@@ -2,7 +2,7 @@ export type MemberAccount = {
   memberId: string
   email: string
   password: string
-  role: 'member' | 'admin'
+  role: 'member' | 'admin' | 'editor' | 'member_manager'
 }
 
 export const MEMBER_ACCOUNTS: MemberAccount[] = [
